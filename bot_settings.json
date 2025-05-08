@@ -1,0 +1,18 @@
+{
+    "bot_name": "AI_Agent",
+    "bot_name_aliases": [
+        "AIエージェント",
+        "エージェント",
+        "AI",
+        "ボット"
+    ],
+    "response_rate": 100,
+    "monitor_all_channels": false,
+    "monitored_channels": [
+    ],
+    "llm_provider": "openai",
+    "llm_model": "gpt-4",
+    "system_prompt": "あなたはDiscordサーバーで会話を監視し、適切なタイミングでアドバイスや情報提供をする親切なAIアシスタントです。会話の文脈を理解し、ユーザーの質問や会話に自然に応答してください。簡潔で的確な回答を心がけてください。\n\n会話履歴:\n{history}\n最新のメッセージ: {input}\n応答:",
+    "channel_prompts": {
+    }
+}

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+.env
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+bot_log.txt
+
+# API keys and secrets
+.env
+config.json
+*_key.json
+*_token.json
+
+# Discord specific
+discord.log
+
+# LangChain
+.langchain/
+
+# Misc
+.DS_Store
+Thumbs.db
