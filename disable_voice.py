@@ -1,9 +1,9 @@
-# Discord.pyu306eu97f3u58f0u6a5fu80fdu3092u7121u52b9u5316u3059u308bu30d1u30c3u30c1
+# Discord.pyの音声機能を無効化するパッチ
 
 import sys
 import types
 
-# u97f3u58f0u6a5fu80fdu95a2u9023u306eu30e2u30b8u30e5u30fcu30ebu3092u30e2u30c3u30afu3059u308b
+# 音声機能関連のモジュールをモックする
 class MockModule(types.ModuleType):
     def __getattr__(self, attr):
         return MockObject()
@@ -18,7 +18,7 @@ class MockObject:
     def __getattr__(self, attr):
         return self
 
-# audioopu30e2u30b8u30e5u30fcu30ebu3092u30e2u30c3u30afu3059u308b
+# audioopモジュールをモックする
 sys.modules['audioop'] = MockModule('audioop')
 
-print("u97f3u58f0u6a5fu80fdu3092u7121u52b9u5316u3057u307eu3057u305f")
+print("音声機能を無効化しました")

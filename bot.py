@@ -11,6 +11,9 @@ from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 
+# DuckDuckGo検索関数（別ファイル）
+from my_duckduckgo import duckduckgo_search
+
 # 環境変数の読み込み
 load_dotenv()
 
@@ -44,8 +47,6 @@ bot_settings = {
     'response_rate': 10,  # 自動応答する確率（%）
     'monitor_all_channels': False,  # すべてのチャンネルを監視するか
     'monitored_channels': [],  # 監視するチャンネルIDリスト
-    'response_mode': 'helpful',  # 応答モード（helpful, concise, detailed）
-    'language': 'japanese',  # 応答言語
     'llm_provider': LLM_PROVIDER,  # 使用するLLMプロバイダー
     'llm_model': 'gpt-3.5-turbo',  # 使用するモデル（プロバイダーによって異なる）
     'channel_prompts': {}  # チャンネルごとのプロンプト設定を保存する辞書
@@ -99,10 +100,7 @@ llm = initialize_llm()
 # 質問用のプロンプトテンプレート
 def get_question_prompt(channel_id=None):
     # システムプロンプトを取得
-    system_prompt = bot_settings.get('system_prompt', "あなたは親切なAIアシスタントです。以下の会話履歴を見て、質問に答えてください。\n\n会話履歴:\n{history}\n質問: {question}\n応答:")
-    
-    # 入力変数名を調整
-    system_prompt = system_prompt.replace('{input}', '{question}')
+    system_prompt = bot_settings.get('system_prompt', "あなたは親切なAIアシスタントです。以下の会話履歴を見て、質問に答えてください。\n\n会話履歴:\n{history}\n質問: {input}\n応答:")
     
     # チャンネルIDが指定され、そのチャンネルにカスタムプロンプトが設定されている場合は、それを追加する
     if channel_id and str(channel_id) in bot_settings['channel_prompts']:
@@ -111,14 +109,14 @@ def get_question_prompt(channel_id=None):
         # チャンネルプロンプトをシステムプロンプトの前に追加
         template = f"{channel_prompt}\n\n{system_prompt}"
         return PromptTemplate(
-            input_variables=["history", "question"],
+            input_variables=["history", "input"],
             template=template
         )
     
     # システムプロンプトのみを使用する
     print("システムプロンプトを使用します")
     return PromptTemplate(
-        input_variables=["history", "question"],
+        input_variables=["history", "input"],
         template=system_prompt
     )
 
@@ -174,14 +172,14 @@ def get_question_chain(channel_id=None):
     if channel_id and channel_id in channel_memories:
         memory = channel_memories[channel_id]
         print(f"チャンネル{channel_id}の会話履歴を使用します")
-        # 会話履歴を取得
-        history = memory.load_memory_variables({})['history']
-        # LLMChainを使用して履歴と質問を処理
-        return LLMChain(llm=llm, prompt=prompt, verbose=True)
+        # LLMChainを使用して履歴と質問を処理（memoryを使用）
+        return LLMChain(llm=llm, prompt=prompt, memory=memory, verbose=True)
     
-    # チャンネルIDがない場合や履歴がない場合は、空の履歴でチェーンを返す
+    # チャンネルIDがない場合や履歴がない場合は、新しいメモリを作成
     print("会話履歴なしで質問に応答します")
-    return LLMChain(llm=llm, prompt=prompt, verbose=True)
+    # 履歴なしの場合は空のメモリを作成
+    empty_memory = ConversationBufferMemory(memory_key="history")
+    return LLMChain(llm=llm, prompt=prompt, memory=empty_memory, verbose=True)
 
 @bot.event
 async def on_ready():
@@ -199,11 +197,116 @@ async def on_message(message):
     # 自分自身のメッセージには応答しない
     if message.author == bot.user:
         return
-    
-    # コマンド処理を優先
+
+    # --- 検索トリガーの検知 ---
+    search_triggers = ['検索して', '検索しろ', '検索', '調べて', '調べろ', 'ググって', 'ぐぐって', 'search ', '検索してください', '調べてください']
+    content = message.content.strip()
+    print(f"メッセージを受信: {content}")  # デバッグ用
+    for trig in search_triggers:
+        if trig in content:
+            # トリガー語を除去してクエリ抽出（単純な例）
+            query = content.replace(trig, '').strip()
+            if not query:
+                query = content  # トリガー語だけの場合は全文
+            # DuckDuckGo検索結果（リスト）を取得
+            ddg_results = duckduckgo_search(query)
+            if not ddg_results:
+                await message.channel.send('検索できません')
+                # デバッグ用: 検索結果リストを送信
+                await message.channel.send(f"[DEBUG] DuckDuckGo検索結果: {ddg_results}")
+                return
+            # errorキーが含まれている場合はエラー内容を返す
+            if isinstance(ddg_results, list) and 'error' in ddg_results[0]:
+                err = ddg_results[0]
+                await message.channel.send(f"[ERROR] DuckDuckGo: {err['error']}\n{err['traceback']}")
+                return
+                
+            # 検索が発動した場合は常に検索結果URLからスクレイピングを行う
+            should_scrape = True  # 常にTrueにすることで全検索で詳細取得
+
+            # スクレイピングして詳細情報を付加
+            if should_scrape:
+                from web_scraper import scrape_url
+                details = []
+                max_scrape = 3  # 上位3件まで詳細取得
+                for idx, result in enumerate(ddg_results[:max_scrape]):
+                    url = result.get('href') or result.get('url')
+                    title = result.get('title')
+                    if url:
+                        try:
+                            scraped = scrape_url(url)
+                            if scraped and scraped.get('text'):
+                                summary = scraped['text'][:300] + ('...' if len(scraped['text']) > 300 else '')
+                                details.append(f"【{idx+1}】{title}\nURL: {url}\n要約: {summary}")
+                            else:
+                                details.append(f"【{idx+1}】{title}\nURL: {url}\n要約: 詳細を取得できませんでした。")
+                        except Exception as e:
+                            details.append(f"【{idx+1}】{title}\nURL: {url}\n要約: スクレイピングエラー: {str(e)}")
+                    else:
+                        details.append(f"【{idx+1}】{title}\nURL情報なし")
+                detail_msg = '\n\n'.join(details)
+                await message.channel.send(detail_msg)
+                return
+
+            
+            # URLからコンテンツを取得
+            if should_scrape:
+                await message.channel.send(f"検索結果のURLから内容を取得しています...")
+                try:
+                    from my_duckduckgo import extract_content_from_urls
+                    # URLからコンテンツを取得
+                    ddg_results = extract_content_from_urls(ddg_results, max_urls=2, max_length_per_url=3000)
+                except Exception as e:
+                    print(f"Error extracting content from URLs: {e}")
+            
+            # 検索結果をテキスト整形
+            results_text = ''
+            for i, r in enumerate(ddg_results, 1):
+                results_text += f"{i}. タイトル: {r['title']}\n説明: {r['body']}\nURL: {r['href']}\n"
+                # コンテンツがあれば追加
+                if 'content' in r and r['content']:
+                    # コンテンツの先頭1000文字を表示
+                    content_preview = r['content'][:1000] + ("..." if len(r['content']) > 1000 else "")
+                    results_text += f"コンテンツ: {content_preview}\n\n"
+                else:
+                    results_text += "\n"
+            
+            # 要約プロンプトを作成
+            summary_prompt = (
+                "以下はDuckDuckGo検索の上位結果リストです。\n"
+                "各項目のタイトル・説明・URL"
+            )
+            
+            # コンテンツがあれば追加
+            if should_scrape:
+                summary_prompt += "・コンテンツ"
+                
+            summary_prompt += (
+                "を参考に、ユーザーの質問に対して日本語で要点をまとめてください。\n"
+                f"検索クエリ: {query}\n"
+                f"検索結果:\n{results_text}"
+                "まとめ:"
+            )
+            # LLMで要約
+            response = None
+            try:
+                chat_chain = get_question_chain(message.channel.id)
+                # 正しい入力形式で実行（辞書形式で入力）
+                response = chat_chain.run({"input": summary_prompt})
+            except Exception as e:
+                response = '要約に失敗しました: ' + str(e)
+                print(f"要約エラー詳細: {e}")
+            await message.channel.send(response)
+            return
+
+    # それ以外は従来通りのコマンド・通常応答処理
     await bot.process_commands(message)
     
-    # コマンドではない通常のメッセージを処理
+    # 自分自身のメッセージには応答しないように再チェック
+    # これはコマンド処理後にも必要
+    if message.author == bot.user:
+        return
+        
     if not message.content.startswith(bot.command_prefix):
         # ボットへのメンションがある場合、または設定された確率で応答
         bot_mentioned = f'<@{BOT_ID}>' in message.content or f'<@!{BOT_ID}>' in message.content

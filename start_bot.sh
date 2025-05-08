@@ -1,4 +1,5 @@
 #!/bin/bash
+source venv/bin/activate
 
 # 現在のディレクトリをスクリプトのディレクトリに変更
 cd "$(dirname "$0")"
