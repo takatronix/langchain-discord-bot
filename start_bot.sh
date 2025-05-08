@@ -38,7 +38,10 @@ fi
 echo "起動モードを選択してください:"
 echo "1) 通常モード (bot.py)"
 echo "2) デバッグモード - 音声機能無効 (debug_bot.py)"
-read -p "選択 (1-2): " choice
+read -p "選択 (1-2, Enterで2): " choice
+if [ -z "$choice" ]; then
+  choice=2
+fi
 
 case $choice in
   1|"1")

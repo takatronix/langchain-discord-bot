@@ -1,9 +1,9 @@
 # Discord bot dependencies
 
 discord.py==2.3.2
-langchain==0.1.0
+langchain==0.3.25
 langchain-openai==0.0.5
-langchain-community==0.0.10
+langchain-community==0.3.23
 python-dotenv==1.0.0
 litellm==1.16.18
 duckduckgo-search==3.9.9
@@ -11,8 +11,10 @@ duckduckgo-search==3.9.9
 # Web scraping dependencies
 requests==2.32.3
 httpx==0.24.1
-beautifulsoup4==4.12.3
+beautifulsoup4==4.14.0
 trafilatura==1.7.0
+lxml==5.3.1
+lxml_html_clean==0.4.2
 
 # tiktoken is excluded due to Python 3.13 compatibility issues
 # If needed, downgrade to Python 3.12 and add tiktoken back

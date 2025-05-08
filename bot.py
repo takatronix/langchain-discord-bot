@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from discord.ext import commands
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import LLMChain
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 
 # DuckDuckGo検索関数（別ファイル）
